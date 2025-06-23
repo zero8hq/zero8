@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 const getErrorMessage = (error) => {
   switch (error) {
@@ -16,7 +17,7 @@ const getErrorMessage = (error) => {
   }
 }
 
-export default function AuthError() {
+function ErrorContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
   const errorMessage = getErrorMessage(error)
@@ -52,5 +53,32 @@ export default function AuthError() {
         </Link>
       </div>
     </div>
+  )
+}
+
+// Loading fallback that matches the error UI structure
+function LoadingFallback() {
+  return (
+    <div className="w-full max-w-md p-8 space-y-8 bg-gray-900 rounded-xl border border-gray-800">
+      <div className="text-center">
+        <div className="text-2xl font-bold tracking-tight text-transparent">ZER08</div>
+        <h2 className="mt-6 text-3xl font-semibold text-white">Loading...</h2>
+      </div>
+      <div className="animate-pulse">
+        <div className="h-20 bg-gray-800 rounded-lg"></div>
+      </div>
+      <div className="space-y-4">
+        <div className="h-12 bg-gray-800 rounded-lg"></div>
+        <div className="h-12 bg-gray-800 rounded-lg"></div>
+      </div>
+    </div>
+  )
+}
+
+export default function AuthError() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ErrorContent />
+    </Suspense>
   )
 } 
