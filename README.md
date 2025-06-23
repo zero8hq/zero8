@@ -86,3 +86,29 @@ For support, please:
 1. Check our [documentation](https://docs.zero8.pro)
 2. Open an issue on GitHub
 3. Join our community discussions
+
+## API Key Authentication
+
+### Overview
+Zero8 provides API key authentication for secure access to API endpoints. This allows you to integrate Zero8 services with your applications while maintaining security.
+
+### Using API Keys
+1. Generate an API key from the dashboard.
+2. Include the API key in your requests using the `x-api-key` header.
+
+Example:
+```bash
+curl -X GET https://your-zero8-app.com/api/protected-endpoint \
+  -H "x-api-key: your-api-key-here"
+```
+
+### Protected Endpoints
+The following endpoints require API key authentication:
+- `/api/protected-example` - Example protected endpoint
+- Additional endpoints as documented in the API reference
+
+### API Key Management
+- API keys can be created, viewed, and revoked from the dashboard.
+- Each key can be named for easy identification.
+- Keys are shown only once at creation time - store them securely.
+- Inactive keys will be automatically rejected.

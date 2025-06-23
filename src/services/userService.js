@@ -5,37 +5,38 @@ import { supabase } from '@/utils/supabase'
  * If the user exists (by email), updates their information
  * If the user doesn't exist, creates a new record
  * Note: API key is never exposed or returned
+ * @param {Object} userData
+ * @param {string} userData.email
+ * @param {string} userData.name
+ * @param {string} userData.image
+ * @returns {Promise<Object>} The created/updated user
  */
-export async function upsertUser(userData) {
-  const { email, name, image } = userData
+export async function upsertUser({ email, name, image }) {
+  if (!email) throw new Error('Email is required')
 
-  if (!email) {
-    throw new Error('Email is required for user upsert')
-  }
+  const { data: user, error } = await supabase
+    .from('users')
+    .upsert(
+      {
+        email,
+        name,
+        image_url: image,
+        updated_at: new Date().toISOString()
+      },
+      {
+        onConflict: 'email',
+        returning: true
+      }
+    )
+    .select()
+    .single()
 
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .upsert(
-        {
-          email,
-          name,
-          image_url: image,
-          updated_at: new Date().toISOString()
-        },
-        {
-          onConflict: 'email',
-          // Only return safe fields, never the API key
-          returning: 'minimal'
-        }
-      )
-
-    if (error) throw error
-    return true
-  } catch (error) {
+  if (error) {
     console.error('Error upserting user:', error)
     throw error
   }
+
+  return user
 }
 
 /**
@@ -59,62 +60,3 @@ export async function checkUserExists(email) {
     return false
   }
 }
-
-/**
- * Generates a new API key for a user
- * This should only be called when explicitly requested by the user
- * @param {string} email - User's email
- * @returns {Promise<string>} - The generated API key
- */
-export async function generateApiKey(email) {
-  if (!email) {
-    throw new Error('Email is required to generate API key')
-  }
-
-  try {
-    // Generate a new UUID for the API key
-    const apiKey = crypto.randomUUID()
-
-    const { data, error } = await supabase
-      .from('users')
-      .update({ 
-        api_key: apiKey,
-        updated_at: new Date().toISOString()
-      })
-      .eq('email', email)
-      .select('api_key')
-      .single()
-
-    if (error) throw error
-    return data.api_key
-  } catch (error) {
-    console.error('Error generating API key:', error)
-    throw error
-  }
-}
-
-/**
- * Revokes (nullifies) a user's API key
- * @param {string} email - User's email
- */
-export async function revokeApiKey(email) {
-  if (!email) {
-    throw new Error('Email is required to revoke API key')
-  }
-
-  try {
-    const { error } = await supabase
-      .from('users')
-      .update({ 
-        api_key: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('email', email)
-
-    if (error) throw error
-    return true
-  } catch (error) {
-    console.error('Error revoking API key:', error)
-    throw error
-  }
-} 
