@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 
 // Add this CSS at the top of the file, after the imports
@@ -53,10 +54,13 @@ export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeMobileDropdown, setActiveMobileDropdown] = useState(null);
-  const [starCount, setStarCount] = useState('001');
+  const [starCount, setStarCount] = useState("001");
   const pathname = usePathname();
   const dropdownRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
+  const { data: session, status } = useSession();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const router = useRouter();
 
   // Handle scroll effect
   useEffect(() => {
@@ -178,11 +182,88 @@ export default function Navigation() {
     },
   ];
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      console.error("Sign out error:", error);
+      setIsSigningOut(false);
+    }
+  };
+
+  const userDropdownItems = [
+    {
+      icon: (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+          />
+        </svg>
+      ),
+      title: "Profile",
+      href: "/profile",
+    },
+    {
+      icon: (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+        </svg>
+      ),
+      title: "Settings",
+      href: "/settings",
+    },
+    {
+      icon: (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+          />
+        </svg>
+      ),
+      title: isSigningOut ? "Signing out..." : "Sign Out",
+      onClick: handleSignOut,
+      disabled: isSigningOut,
+    },
+  ];
+
   return (
     <header className="z-50 w-full fixed top-0 left-0 right-0">
       {/* Desktop floating nav */}
       <div className="hidden md:flex justify-center w-full pt-5 pb-3">
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 flex items-center justify-between px-3 py-2 rounded-xl shadow-2xl bg-[#18181B]/95 border border-[#232329] w-[calc(100%-40px)] max-w-4xl mx-auto h-[54px] backdrop-blur-lg z-50">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 flex items-center justify-between px-3 py-2 rounded-xl shadow-2xl bg-[#18181B]/95 border border-[#232329] w-[calc(100%-40px)] max-w-3xl mx-auto h-[54px] backdrop-blur-lg z-50">
           {/* Logo */}
           <Link href="/" className="flex items-center mr-6">
             <Zero8Logo />
@@ -346,193 +427,305 @@ export default function Navigation() {
               Pricing
             </Link>
 
-            {/* GitHub Stars */}
-            <div className="ml-2 flex items-center space-x-3 gap-4">
-              <a
-                href="https://github.com/zero8hq/zero8"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center px-3 py-1.5 rounded-md text-sm font-medium bg-[#000000] text-gray-300 transition-colors border border-[#000000] group"
+            {/* User Profile or Sign In */}
+            {status === "loading" ? (
+              <div className="ml-2 px-3 py-1.5 rounded-md bg-[#1a1a1a] flex items-center">
+                <div className="w-7 h-7 rounded-full bg-[#222222] animate-pulse"></div>
+                <div className="ml-2 w-4 h-4 rounded bg-[#222222] animate-pulse"></div>
+              </div>
+            ) : status === "authenticated" ? (
+              <div
+                className="relative"
+                onMouseEnter={() => handleMouseEnter("user")}
+                onMouseLeave={handleMouseLeave}
               >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-                </svg>
-                <span className="whitespace-nowrap">Stars on GitHub</span>
-                <div className="flex items-center ml-2 pl-2 border-l border-[#333333]">
-                  <svg 
-                    className="w-3.5 h-3.5 mr-1 text-[#9197a3] group-hover:text-amber-400 transition-colors" 
-                    viewBox="0 0 20 20" 
-                    fill="currentColor"
+                <button
+                  className={`ml-2 flex items-center px-3 py-1.5 rounded-md transition-all duration-300 ${
+                    activeDropdown === "user"
+                      ? "bg-[#222222] text-white"
+                      : "text-gray-300 hover:text-white hover:bg-[#1a1a1a]"
+                  }`}
+                >
+                  {session.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt={session.user.name || "User"}
+                      width={50}
+                      height={50}
+                      className="rounded-full w-7 h-7"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+                      {session.user?.name?.[0] ||
+                        session.user?.email?.[0] ||
+                        "?"}
+                    </div>
+                  )}
+                  <svg
+                    className={`ml-2 w-4 h-4 transition-transform duration-200 ${
+                      activeDropdown === "user" ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
                   >
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
-                  <span className="font-medium">{starCount}</span>
-                </div>
-              </a>
+                </button>
 
-              {/* Sign In Button */}
+                {/* User Dropdown */}
+                <div
+                  className={`absolute right-0 mt-2 w-48 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] shadow-lg overflow-hidden z-50 ${
+                    dropdownAnimation.enter
+                  } ${
+                    activeDropdown === "user"
+                      ? "opacity-100 scale-100"
+                      : "opacity-0 scale-95 pointer-events-none"
+                  }`}
+                >
+                  <div className="p-2">
+                    {userDropdownItems.map((item) =>
+                      item.href ? (
+                        <Link
+                          key={item.title}
+                          href={item.href}
+                          className="flex items-center px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-[#222222] rounded-md transition-colors duration-150"
+                        >
+                          {item.icon}
+                          <span className="ml-2">{item.title}</span>
+                        </Link>
+                      ) : (
+                        <button
+                          key={item.title}
+                          onClick={item.onClick}
+                          className="flex items-center w-full px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-[#222222] rounded-md transition-colors duration-150"
+                        >
+                          {item.icon}
+                          <span className="ml-2">{item.title}</span>
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
               <Link
                 href="/signin"
-                className="px-4 py-1.5 rounded-full bg-white text-sm font-medium text-black hover:bg-gray-100 transition-colors"
+                className="ml-2 px-4 py-2 rounded-md text-sm font-medium bg-white text-gray-900 hover:bg-gray-200 transition-all duration-300"
               >
-                Sign in
+                Sign In
               </Link>
-            </div>
+            )}
           </nav>
         </div>
       </div>
 
-      {/* Mobile nav */}
-      <div className="md:hidden bg-[#18181B]/95 border-b border-[#232329] h-16 flex items-center px-4 z-50">
-        <Link href="/" className="flex items-center">
-          <Zero8Logo />
-          <span className="ml-2 text-lg font-semibold text-white tracking-tight">
-            ZER08
-          </span>
-        </Link>
-        <div className="ml-auto">
+      {/* Mobile navigation */}
+      <div className="md:hidden">
+        {/* Fixed top bar */}
+        <div className="fixed top-0 left-0 right-0 h-16 bg-[#18181B] border-b border-[#232329] px-4 flex items-center justify-between z-50">
+          <div className="flex items-center justify-between w-full">
+            {/* Logo */}
+            <Link href="/" className="flex items-center">
+              <Zero8Logo />
+              <span className="ml-2.5 text-lg font-semibold text-white tracking-tight">
+                ZER08
+              </span>
+              <span className="ml-2 text-xs py-0.5 px-1.5 bg-[#333333] text-gray-300 rounded-md font-medium">
+                beta
+              </span>
+            </Link>
+
+            {/* GitHub Stars (Compact) */}
+            <div className="flex items-center mr-2">
+              <a
+                href="https://github.com/zero8hq/zero8"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center px-2 py-1 rounded-md text-sm font-medium bg-[#000000] text-gray-300 transition-colors border border-[#000000] group"
+              >
+                <svg
+                  className="w-4 h-4 mr-1.5"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                >
+                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                </svg>
+                <div className="flex items-center">
+                  <svg
+                    className="w-3.5 h-3.5 mr-1 text-[#9197a3] group-hover:text-amber-400 transition-colors"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span className="font-medium text-sm">001</span>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          {/* Menu button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-[#222222] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-gray-500"
-            aria-expanded={isMobileMenuOpen}
+            className="p-2 rounded-lg text-gray-300 hover:text-white transition-colors duration-200"
+            aria-label="Toggle menu"
           >
-            <span className="sr-only">Open main menu</span>
-            {isMobileMenuOpen ? (
-              <svg
-                className="block h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              {isMobileMenuOpen ? (
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
                   d="M6 18L18 6M6 6l12 12"
                 />
-              </svg>
-            ) : (
-              <svg
-                className="block h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              ) : (
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
                   d="M4 6h16M4 12h16M4 18h16"
                 />
-              </svg>
-            )}
+              )}
+            </svg>
           </button>
         </div>
-      </div>
 
-      {/* Mobile menu dropdown */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-[#18181B]/98 border-b border-[#232329] absolute top-16 left-0 right-0 z-50 shadow-lg">
-          <div className="px-4 pt-2 pb-4 space-y-1">
-            {/* Company Dropdown in Mobile */}
-            <div>
-              <button
-                onClick={() => toggleMobileDropdown("company")}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-md text-base font-medium text-white hover:bg-[#222222]"
-              >
-                <span>Company</span>
-                <svg
-                  className={`ml-1 w-5 h-5 transition-transform duration-200 ${
-                    activeMobileDropdown === "company" ? "rotate-180" : ""
+        {/* Slide-out menu */}
+        <div
+          className={`fixed inset-0 z-40 transition-all duration-300 ${
+            isMobileMenuOpen
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none"
+          }`}
+        >
+          {/* Backdrop */}
+          <div
+            className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+              isMobileMenuOpen ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Menu panel */}
+          <div
+            className={`fixed right-0 top-16 bottom-0 w-[280px] bg-[#18181B] border-l border-[#232329] transform transition-transform duration-300 ease-out ${
+              isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            {/* User profile section */}
+            {status === "loading" ? (
+              <div className="p-4 border-b border-[#232329]">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 rounded-full bg-[#232329] animate-pulse" />
+                  <div className="ml-3 flex-1">
+                    <div className="h-4 w-24 bg-[#232329] rounded animate-pulse" />
+                    <div className="h-3 w-32 bg-[#232329] rounded animate-pulse mt-2" />
+                  </div>
+                </div>
+              </div>
+            ) : status === "authenticated" ? (
+              <div className="p-4 border-b border-[#232329]">
+                <div className="flex items-center">
+                  {session.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt={session.user.name || "User"}
+                      width={40}
+                      height={40}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+                      {session.user?.name?.[0] ||
+                        session.user?.email?.[0] ||
+                        "?"}
+                    </div>
+                  )}
+                  <div className="ml-3">
+                    <div className="font-medium text-white">
+                      {session.user?.name || "User"}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {session.user?.email}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Navigation items */}
+            <div className="py-2">
+              {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center px-4 py-3 text-sm font-medium transition-colors duration-200 ${
+                    pathname === item.href
+                      ? "text-white bg-[#232329]"
+                      : "text-gray-400 hover:text-white hover:bg-[#1d1d20]"
                   }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
+                  {item.name}
+                </Link>
+              ))}
+            </div>
 
-              {activeMobileDropdown === "company" && (
-                <div className="mt-1 pl-4 space-y-1">
-                  {companyDropdown.map((item) => (
+            {/* User actions */}
+            {status === "authenticated" ? (
+              <div className="absolute bottom-0 left-0 right-0 border-t border-[#232329]">
+                {userDropdownItems.map((item) =>
+                  item.href ? (
                     <Link
                       key={item.title}
                       href={item.href}
-                      className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-[#222222]"
+                      className="flex items-center px-4 py-3 text-sm text-gray-400 hover:text-white hover:bg-[#1d1d20] transition-colors duration-200"
+                      onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      {item.title}
+                      {item.icon}
+                      <span className="ml-3">{item.title}</span>
                     </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Resources Dropdown in Mobile */}
-            <div>
-              <button
-                onClick={() => toggleMobileDropdown("resources")}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-md text-base font-medium text-white hover:bg-[#222222]"
-              >
-                <span>Resources</span>
-                <svg
-                  className={`ml-1 w-5 h-5 transition-transform duration-200 ${
-                    activeMobileDropdown === "resources" ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-
-              {activeMobileDropdown === "resources" && (
-                <div className="mt-1 pl-4 space-y-1">
-                  {resourcesDropdown.map((item) => (
-                    <Link
+                  ) : (
+                    <button
                       key={item.title}
-                      href={item.href}
-                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-[#222222]"
+                      onClick={() => {
+                        item.onClick();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      disabled={item.disabled}
+                      className="flex items-center w-full px-4 py-3 text-sm text-gray-400 hover:text-white hover:bg-[#1d1d20] transition-colors duration-200 disabled:opacity-50"
                     >
-                      <span className="mr-3">{item.icon}</span>
-                      {item.title}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Pricing Link in Mobile */}
-            <Link
-              href="/pricing"
-              className="block px-3 py-2.5 rounded-md text-base font-medium text-white hover:bg-[#222222]"
-            >
-              Pricing
-            </Link>
-
-            {/* Sign In Button in Mobile */}
-            <div className="pt-2 pb-1">
-              <Link
-                href="/signin"
-                className="block w-full px-4 py-2.5 text-center rounded-md text-base font-medium bg-white text-gray-900 hover:bg-gray-200"
-              >
-                Sign in
-              </Link>
-            </div>
+                      {item.icon}
+                      <span className="ml-3">{item.title}</span>
+                    </button>
+                  )
+                )}
+              </div>
+            ) : (
+              <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#232329]">
+                <Link
+                  href="/signin"
+                  className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium bg-white text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Sign In
+                </Link>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }

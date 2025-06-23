@@ -1,5 +1,4 @@
 import BackgroundPattern from '@/components/ui/BackgroundPattern';
-import Navigation from '@/components/ui/Navigation';
 import Features from '@/components/sections/Features';
 import Cta from '@/components/sections/Cta';
 import Footer from '@/components/ui/Footer';
@@ -9,7 +8,6 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-[#111111] text-white">
       <BackgroundPattern />
-      <Navigation />
       
       {/* Hero Section */}
       <main className="flex-1">

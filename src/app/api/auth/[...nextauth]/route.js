@@ -1,32 +1,33 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import CredentialsProvider from 'next-auth/providers/credentials'
+import { upsertUser } from '@/services/userService'
 
 const handler = NextAuth({
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-    }),
-    CredentialsProvider({
-      name: 'Credentials',
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        // This is where we'll add actual authentication logic later
-        if (credentials?.email && credentials?.password) {
-          return {
-            id: '1',
-            email: credentials.email,
-            name: 'Test User'
-          }
-        }
-        return null
-      }
     })
   ],
+  callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === 'google') {
+        try {
+          // Store or update user in Supabase
+          await upsertUser({
+            email: user.email,
+            name: user.name,
+            image: user.image
+          })
+          return true
+        } catch (error) {
+          console.error('Error storing user:', error)
+          return true // Still allow sign in even if DB storage fails
+        }
+      }
+      return true
+    }
+  },
   pages: {
     signIn: '/signin',
     signUp: '/signup',
@@ -38,4 +39,4 @@ const handler = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
 })
 
-export { handler as GET, handler as POST } 
+export { handler as GET, handler as POST }
