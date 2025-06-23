@@ -1,11 +1,7 @@
-import NextAuth from 'next-auth'
-import { authOptions } from './options'
 import GoogleProvider from 'next-auth/providers/google'
 import { upsertUser } from '@/services/userService'
 
-const handler = NextAuth(authOptions)
-
-const authOptionsWithGoogle = {
+export const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',
@@ -57,6 +53,4 @@ const authOptionsWithGoogle = {
     strategy: 'jwt'
   },
   secret: process.env.NEXTAUTH_SECRET,
-}
-
-export { handler as GET, handler as POST }
+} 
