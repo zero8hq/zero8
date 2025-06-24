@@ -37,6 +37,8 @@ This document outlines the step-by-step implementation plan for building ZER08. 
    - Navigation structure
    - User profile section
 
+
+
 ## Phase 3: API Key Management
 1. Database Schema: API Keys Table
    ```sql
@@ -63,6 +65,10 @@ This document outlines the step-by-step implementation plan for building ZER08. 
    - Generate new keys
    - Revoke keys
    - View key usage
+
+
+---------------- done till here ----------------
+   
 
 ## Phase 4: Core Job Scheduling
 1. Database Schema: Jobs Table
@@ -102,6 +108,10 @@ This document outlines the step-by-step implementation plan for building ZER08. 
    - Job listing view
    - Job detail view
    - Job editing interface
+
+
+---------------- Next till here ----------------
+
 
 ## Phase 5: Scheduler Engine
 1. GitHub Actions Setup
