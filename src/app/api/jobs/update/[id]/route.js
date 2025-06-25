@@ -35,6 +35,12 @@ function isValidRuleValue(ruleType, ruleValue) {
   if (ruleType === 'interval') {
     return Number.isInteger(ruleValue) && ruleValue > 0;
   }
+  if (ruleType === 'minutes') {
+    return Number.isInteger(ruleValue) && ruleValue > 0 && ruleValue <= 1440;
+  }
+  if (ruleType === 'hours') {
+    return Number.isInteger(ruleValue) && ruleValue > 0 && ruleValue <= 24;
+  }
   return false;
 }
 
@@ -61,33 +67,94 @@ async function handlePatch(req, context) {
   if (updates.end_date && (typeof updates.end_date !== 'string' || !isValidISODate(updates.end_date))) {
     errors.push('Invalid end_date');
   }
+  
+  // Check freq if it's being updated
+  if (updates.freq && (typeof updates.freq !== 'string' || !['daily', 'custom', 'recurring'].includes(updates.freq))) {
+    errors.push('Invalid freq');
+  }
+  
+  // Validate trigger_timings if provided
   if (updates.trigger_timings && (!Array.isArray(updates.trigger_timings) || !updates.trigger_timings.every(time => typeof time === 'string' && isValidTimeString(time)))) {
     errors.push('Invalid trigger_timings');
   }
-  if (updates.freq && (typeof updates.freq !== 'string' || !['daily', 'custom'].includes(updates.freq))) {
-    errors.push('Invalid freq');
-  }
-  if (updates.freq === 'daily') {
+  
+  // If updating to recurring frequency
+  if (updates.freq === 'recurring') {
+    // Validate rule_type for recurring
+    if (!updates.rule_type || !['minutes', 'hours'].includes(updates.rule_type)) {
+      errors.push('For recurring frequency, rule_type must be \'minutes\' or \'hours\'');
+    }
+    
+    // Validate rule_value for recurring
+    if (!updates.rule_value) {
+      if (updates.rule_type) {
+        errors.push(`Invalid rule_value for ${updates.rule_type}`);
+      } else {
+        errors.push('rule_value is required for recurring frequency');
+      }
+    } else if (updates.rule_type && !isValidRuleValue(updates.rule_type, updates.rule_value)) {
+      errors.push(`Invalid rule_value for ${updates.rule_type}`);
+    }
+    
+    // Check if trigger_timings or override_dates are provided
+    if (updates.trigger_timings) {
+      errors.push('trigger_timings should not be provided for recurring frequency');
+    }
+    if (updates.override_dates) {
+      errors.push('override_dates should not be provided for recurring frequency');
+    }
+  } 
+  // Validation for daily frequency
+  else if (updates.freq === 'daily') {
     if (updates.rule_type || updates.rule_value || updates.override_dates) {
       errors.push('For daily frequency, rule_type, rule_value, and override_dates must not be provided');
     }
+    
+    // Need trigger_timings for daily
+    if (updates.freq && !updates.trigger_timings && !('trigger_timings' in updates)) {
+      errors.push('trigger_timings is required for daily frequency');
+    }
+  } 
+  // Validation for custom frequency
+  else if (updates.freq === 'custom') {
+    // Need trigger_timings for custom
+    if (updates.freq && !updates.trigger_timings && !('trigger_timings' in updates)) {
+      errors.push('trigger_timings is required for custom frequency');
+    }
+    
+    // Validate rule_type if provided
+    if (updates.rule_type && (typeof updates.rule_type !== 'string' || !['weekly', 'monthly', 'interval'].includes(updates.rule_type))) {
+      errors.push('Invalid rule_type for custom frequency');
+    }
+    
+    // Validate rule_value if rule_type is provided
+    if (updates.rule_type && (!updates.rule_value || !isValidRuleValue(updates.rule_type, updates.rule_value))) {
+      errors.push('Invalid rule_value for the specified rule_type');
+    }
+    
+    // Validate override_dates if provided
+    if (updates.override_dates && (!Array.isArray(updates.override_dates) || !updates.override_dates.every(date => typeof date === 'string' && isValidISODate(date)))) {
+      errors.push('Invalid override_dates');
+    }
+    
+    // For custom frequency updates, ensure either rule data or override dates
+    if (updates.freq === 'custom' && !updates.rule_type && !updates.override_dates && !('rule_type' in updates) && !('override_dates' in updates)) {
+      errors.push('For custom frequency, either rule_type/rule_value or override_dates must be provided');
+    }
   }
-  if (updates.rule_type && (typeof updates.rule_type !== 'string' || !['weekly', 'monthly', 'interval'].includes(updates.rule_type) || !isValidRuleValue(updates.rule_type, updates.rule_value))) {
-    errors.push('Invalid rule_type or rule_value');
-  }
-  if (updates.override_dates && (!Array.isArray(updates.override_dates) || !updates.override_dates.every(date => typeof date === 'string' && isValidISODate(date)))) {
-    errors.push('Invalid override_dates');
-  }
-  if (updates.callback_url && (typeof updates.callback_url !== 'string' || !isValidURL(updates.callback_url))) {
-    errors.push('Invalid callback_url');
-  }
-  if (updates.metadata && typeof updates.metadata !== 'object') {
-    errors.push('Invalid metadata');
-  }
-
-  // Ensure rule_type and rule_value are both provided or both absent
-  if ((updates.rule_type && !updates.rule_value) || (!updates.rule_type && updates.rule_value)) {
-    errors.push('Both rule_type and rule_value must be provided together');
+  else {
+    // For general updates without freq change
+    if (updates.callback_url && (typeof updates.callback_url !== 'string' || !isValidURL(updates.callback_url))) {
+      errors.push('Invalid callback_url');
+    }
+    if (updates.metadata && typeof updates.metadata !== 'object') {
+      errors.push('Invalid metadata');
+    }
+    
+    // Ensure rule_type and rule_value are both provided or both absent
+    if ((updates.rule_type && !updates.rule_value) || (!updates.rule_type && updates.rule_value)) {
+      errors.push('Both rule_type and rule_value must be provided together');
+    }
   }
 
   // If there are any errors, return them
@@ -115,6 +182,10 @@ async function handlePatch(req, context) {
       updates.rule_type = null;
       updates.rule_value = null;
     }
+  } else if (updates.freq === 'recurring') {
+    // For recurring frequency, set trigger_timings and override_dates to null
+    updates.trigger_timings = null;
+    updates.override_dates = null;
   }
 
   // Update the job details for the specified job ID

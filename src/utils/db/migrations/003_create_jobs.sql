@@ -5,7 +5,7 @@ CREATE TABLE jobs (
   user_id UUID REFERENCES users(id),
   start_date DATE NOT NULL,
   end_date DATE,
-  trigger_timings TEXT[] NOT NULL,
+  trigger_timings TEXT[],
   freq TEXT NOT NULL,
   rule_type TEXT,
   rule_value JSONB,

@@ -51,6 +51,17 @@ export async function GET() {
 
 // Helper function to validate ISO date strings
 function isValidISODate(dateString) {
+  // If null or undefined, it's valid (for optional dates)
+  if (dateString === null || dateString === undefined) {
+    return true;
+  }
+  
+  // Empty string should be handled as null
+  if (dateString === '') {
+    return true;
+  }
+  
+  // Validate date string
   const date = new Date(dateString);
   return !isNaN(date.getTime()) && dateString === date.toISOString().split('T')[0];
 }
@@ -81,6 +92,12 @@ function isValidRuleValue(ruleType, ruleValue) {
   }
   if (ruleType === 'interval') {
     return Number.isInteger(ruleValue) && ruleValue > 0;
+  }
+  if (ruleType === 'minutes') {
+    return Number.isInteger(ruleValue) && ruleValue > 0 && ruleValue <= 1440;
+  }
+  if (ruleType === 'hours') {
+    return Number.isInteger(ruleValue) && ruleValue > 0 && ruleValue <= 24;
   }
   return false;
 }
@@ -113,52 +130,97 @@ export async function POST(req) {
     }
 
     // Destructure the requestData after checking for restricted fields
-    const { start_date, end_date, trigger_timings, freq, rule_type, rule_value, override_dates, callback_url, metadata } = requestData;
+    const { start_date, end_date, trigger_timings, freq, rule_type, rule_value, override_dates, callback_url, metadata, status } = requestData;
 
     // Validate input data
     if (!start_date || typeof start_date !== 'string' || !isValidISODate(start_date)) {
       errors.push('Invalid or missing start_date');
     }
-    if (end_date && (typeof end_date !== 'string' || !isValidISODate(end_date))) {
+    
+    // Handle empty string for end_date by treating it as null
+    let processedEndDate = end_date;
+    if (end_date === '') {
+      processedEndDate = null;
+    }
+    else if (end_date && (typeof end_date !== 'string' || !isValidISODate(end_date))) {
       errors.push('Invalid end_date');
     }
-    if (!Array.isArray(trigger_timings) || !trigger_timings.every(time => typeof time === 'string' && isValidTimeString(time))) {
-      errors.push('Invalid trigger_timings');
-    }
-    if (!freq || typeof freq !== 'string' || !['daily', 'custom'].includes(freq)) {
+
+    // Check if freq is valid
+    if (!freq || typeof freq !== 'string' || !['daily', 'custom', 'recurring'].includes(freq)) {
       errors.push('Invalid or missing freq');
     }
-    if (freq === 'daily') {
-      if (rule_type || rule_value || override_dates) {
-        errors.push('For daily frequency, rule_type, rule_value, and override_dates must not be provided');
+    
+    // Validate based on frequency type
+    if (freq === 'recurring') {
+      // For recurring frequency:
+      // 1. trigger_timings should NOT be provided
+      // 2. override_dates should NOT be provided
+      if (trigger_timings) {
+        errors.push('trigger_timings should not be provided for recurring frequency');
+      }
+      
+      if (override_dates) {
+        errors.push('override_dates should not be provided for recurring frequency');
+      }
+      
+      // Validate rule_type and rule_value
+      if (!rule_type || !['minutes', 'hours'].includes(rule_type)) {
+        errors.push('For recurring frequency, rule_type must be \'minutes\' or \'hours\'');
+      }
+      
+      if (!rule_value) {
+        if (rule_type) {
+          errors.push(`Invalid rule_value for ${rule_type}`);
+        } else {
+          errors.push('rule_value is required for recurring frequency');
+        }
+      } else if (rule_type && !isValidRuleValue(rule_type, rule_value)) {
+        errors.push(`Invalid rule_value for ${rule_type}`);
+      }
+    } else {
+      // For daily and custom frequencies, trigger_timings is mandatory
+      if (!Array.isArray(trigger_timings) || !trigger_timings.length || !trigger_timings.every(time => typeof time === 'string' && isValidTimeString(time))) {
+        errors.push('trigger_timings is required');
+      }
+      
+      // Daily frequency should not have rules or override dates
+      if (freq === 'daily') {
+        if (rule_type || rule_value || override_dates) {
+          errors.push('For daily frequency, rule_type, rule_value, and override_dates must not be provided');
+        }
+      }
+      // Custom frequency validation
+      else if (freq === 'custom') {
+        // If rule_type is provided, validate it and rule_value
+        if (rule_type) {
+          if (!['weekly', 'monthly', 'interval'].includes(rule_type) || !isValidRuleValue(rule_type, rule_value)) {
+            errors.push('Invalid rule_type or rule_value for custom frequency');
+          }
+        }
+        
+        // Validate override_dates if provided
+        if (override_dates && (!Array.isArray(override_dates) || !override_dates.every(date => typeof date === 'string' && isValidISODate(date)))) {
+          errors.push('Invalid override_dates');
+        }
+        
+        // For custom frequency, either rule_type or override_dates must be provided
+        if (!rule_type && (!override_dates || override_dates.length === 0)) {
+          errors.push('For custom frequency, provide either rule_type/rule_value or override_dates');
+        }
+        
+        // If rule_type is provided, rule_value must also be provided (and vice versa)
+        if ((rule_type && !rule_value) || (!rule_type && rule_value)) {
+          errors.push('Both rule_type and rule_value must be provided together');
+        }
       }
     }
-    if (rule_type && (typeof rule_type !== 'string' || !['weekly', 'monthly', 'interval'].includes(rule_type) || !isValidRuleValue(rule_type, rule_value))) {
-      errors.push('Invalid rule_type or rule_value');
-    }
-    if (override_dates && (!Array.isArray(override_dates) || !override_dates.every(date => typeof date === 'string' && isValidISODate(date)))) {
-      errors.push('Invalid override_dates');
-    }
+    
     if (!callback_url || typeof callback_url !== 'string' || !isValidURL(callback_url)) {
       errors.push('Invalid or missing callback_url');
     }
     if (metadata && typeof metadata !== 'object') {
       errors.push('Invalid metadata');
-    }
-
-    // For custom frequency, validate that we have either rule data or override dates
-    if (freq === 'custom') {
-      const hasRuleData = rule_type && rule_value;
-      const hasOverrideDates = override_dates && override_dates.length > 0;
-      
-      if (!hasRuleData && !hasOverrideDates) {
-        errors.push('For custom frequency, provide either rule_type/rule_value or override_dates');
-      }
-      
-      // If rule_type is provided, rule_value must also be provided (and vice versa)
-      if ((rule_type && !rule_value) || (!rule_type && rule_value)) {
-        errors.push('Both rule_type and rule_value must be provided together');
-      }
     }
 
     // If there are any errors, return them
@@ -170,14 +232,15 @@ export async function POST(req) {
     const { data, error } = await supabase.from('jobs').insert({
       user_id: userId,
       start_date,
-      end_date,
-      trigger_timings,
+      end_date: processedEndDate,
+      trigger_timings: freq === 'recurring' ? null : trigger_timings,
       freq,
-      rule_type,
-      rule_value,
-      override_dates,
+      rule_type: freq === 'daily' ? null : rule_type,
+      rule_value: freq === 'daily' ? null : rule_value,
+      override_dates: (freq === 'daily' || freq === 'recurring') ? null : override_dates,
       callback_url,
-      metadata
+      metadata,
+      status: status || 'active'
     }).select().single();
 
     if (error) {
