@@ -67,9 +67,6 @@ This document outlines the step-by-step implementation plan for building ZER08. 
    - View key usage
 
 
----------------- done till here ----------------
-   
-
 ## Phase 4: Core Job Scheduling
 1. Database Schema: Jobs Table
    ```sql
@@ -110,7 +107,7 @@ This document outlines the step-by-step implementation plan for building ZER08. 
    - Job editing interface
 
 
----------------- Next till here ----------------
+---------------- done till here ----------------
 
 
 ## Phase 5: Scheduler Engine
