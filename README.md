@@ -66,6 +66,39 @@ zero8/
 └── package.json
 ```
 
+## 🕒 Job Scheduler
+
+The job scheduling engine is a core feature of ZER08 that enables the execution of scheduled jobs based on various frequency patterns.
+
+### Scheduler Architecture
+- **GitHub Actions Workflow**: Runs every minute to check for jobs that need to be triggered
+- **API Endpoint**: `/api/jobs/trigger` processes jobs and sends webhooks
+- **Security**: Requests between GitHub Actions and the API are authenticated using a shared secret
+
+### Job Frequency Types
+1. **Daily**: Jobs that run at specific times every day
+2. **Custom**: Jobs that run based on complex rules:
+   - Weekly: Run on specific days of the week
+   - Monthly: Run on specific days of the month
+   - Interval: Run every N days
+   - Override dates: Run on specific calendar dates
+3. **Recurring**: Jobs that run at fixed intervals (minutes/hours)
+
+### Webhook Payload
+When a job is triggered, ZER08 sends a POST request to the job's callback URL with the following payload:
+```json
+{
+  "metadata": { /* Your custom metadata */ },
+  "job_id": "uuid",
+  "triggered_at": "2023-04-15T14:22:00Z"
+}
+```
+
+### Setting Up GitHub Actions
+For self-hosted deployments, you'll need to configure the following secrets in your GitHub repository:
+- `API_URL`: The base URL of your deployed application
+- `GITHUB_ACTION_SECRET`: A secure random string used to authenticate requests
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](docs/CONTRIBUTING.md) for details.
