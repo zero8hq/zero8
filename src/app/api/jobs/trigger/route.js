@@ -138,7 +138,7 @@ function isAuthenticated(req) {
   const authToken = headersList.get('x-auth-token');
   
   // Compare with environment variable set in your GitHub Actions workflow
-  return authToken === process.env.GITHUB_ACTION_SECRET;
+  return authToken === process.env.ACTION_SECRET_GITHUB;
 }
 
 export async function GET(req) {

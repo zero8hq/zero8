@@ -97,7 +97,7 @@ When a job is triggered, ZER08 sends a POST request to the job's callback URL wi
 ### Setting Up GitHub Actions
 For self-hosted deployments, you'll need to configure the following secrets in your GitHub repository:
 - `API_URL`: The base URL of your deployed application
-- `GITHUB_ACTION_SECRET`: A secure random string used to authenticate requests
+- `ACTION_SECRET_GITHUB`: A secure random string used to authenticate requests
 
 ## 🤝 Contributing
 
