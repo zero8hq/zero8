@@ -71,9 +71,9 @@ zero8/
 The job scheduling engine is a core feature of ZER08 that enables the execution of scheduled jobs based on various frequency patterns.
 
 ### Scheduler Architecture
-- **GitHub Actions Workflow**: Runs every minute to check for jobs that need to be triggered
+- **External Cron Service**: Uses [cron-jobs.com](https://cron-jobs.org) to trigger the scheduler every minute
 - **API Endpoint**: `/api/jobs/trigger` processes jobs and sends webhooks
-- **Security**: Requests between GitHub Actions and the API are authenticated using a shared secret
+- **Security**: Requests between the cron service and the API are authenticated using a shared secret
 
 ### Job Frequency Types
 1. **Daily**: Jobs that run at specific times every day
@@ -94,10 +94,15 @@ When a job is triggered, ZER08 sends a POST request to the job's callback URL wi
 }
 ```
 
-### Setting Up GitHub Actions
-For self-hosted deployments, you'll need to configure the following secrets in your GitHub repository:
-- `API_URL`: The base URL of your deployed application
-- `ACTION_SECRET_GITHUB`: A secure random string used to authenticate requests
+### Setting Up Cron Service
+For deployment, you'll need to:
+1. Create an account on [cron-jobs.com](https://cron-jobs.org)
+2. Set up a new cron job with:
+   - URL: `https://your-app-url.com/api/jobs/trigger`
+   - Method: `POST`
+   - Headers: `x-auth-token: your_secure_secret`
+   - Schedule: Every 1 minute
+3. Add the same secret to your environment variables as `CRON_JOB_SECRET`
 
 ## 🤝 Contributing
 

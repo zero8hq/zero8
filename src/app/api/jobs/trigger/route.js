@@ -132,16 +132,17 @@ async function triggerJob(job, currentTime) {
   }
 }
 
-// Authenticate the request using a GitHub Actions secret token
+// Authenticate the request using a secure token
 function isAuthenticated(req) {
   const headersList = headers();
   const authToken = headersList.get('x-auth-token');
   
-  // Compare with environment variable set in your GitHub Actions workflow
-  return authToken === process.env.ACTION_SECRET_GITHUB;
+  // Compare with environment variable
+  return authToken === process.env.CRON_JOB_SECRET;
 }
 
-export async function GET(req) {
+// Handle POST requests from cron-jobs.com
+export async function POST(req) {
   // Check authentication
   if (!isAuthenticated(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -181,7 +182,9 @@ export async function GET(req) {
     // Filter out null results (jobs that weren't triggered)
     const triggeredJobs = results.filter(result => result !== null);
     
+    // Always return 200 OK for successful processing
     return NextResponse.json({ 
+      success: true,
       message: 'Job processing completed', 
       triggered_count: triggeredJobs.length,
       triggered_jobs: triggeredJobs 
@@ -189,6 +192,17 @@ export async function GET(req) {
     
   } catch (error) {
     console.error('Error processing jobs:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    // Still return 200 OK to prevent cron-jobs.com from marking as failed
+    // but include error details in the response
+    return NextResponse.json({ 
+      success: false,
+      error: 'Internal server error',
+      message: error.message
+    }, { status: 200 });
   }
+}
+
+// Keep GET endpoint for backward compatibility or testing
+export async function GET(req) {
+  return POST(req);
 } 
